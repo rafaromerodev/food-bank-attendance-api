@@ -97,15 +97,29 @@ flowchart LR
 - **`open-in-view` is disabled.** Responses are built from data loaded inside the transaction. A test caught a lazy-loading bug on the deactivated-card path because of this.
 - **Entities expose no setters.** State changes go through intention-revealing methods (`renew`, `deactivate`, `correctDocument`).
 
+## Security
+
+Staff authenticate with HTTP Basic against accounts stored in PostgreSQL (BCrypt hashes only). Access depends on two roles:
+
+| Role | Can |
+|---|---|
+| `FRONT_DESK` | Register and update beneficiaries, search, assign a first card, check people in (card or manual), read histories |
+| `COORDINATOR` | Everything above, plus deactivate and reactivate beneficiaries, renew files, replace cards and read reports |
+
+- **Stateless, no cookies.** CSRF protection is off because every request carries its own `Authorization` header. A 401 never sends a `WWW-Authenticate: Basic` challenge, so browsers never show their login prompt or cache credentials that another site could reuse.
+- **Deny by default.** Anything outside `/api/**`, `/actuator/health` and the API docs is denied. Errors use the same RFC 9457 problem-detail shape as the rest of the API.
+- **No credentials in the repository.** On an empty database, the first coordinator is created from `APP_BOOTSTRAP_USERNAME` and `APP_BOOTSTRAP_PASSWORD` (12 characters minimum); nothing happens once an account exists.
+- **Reviewed locally** against path-based bypasses (trailing slash, `;` parameters, encoded slashes, case changes, double slashes) and user enumeration. All of them fail.
+
 ## Running it
 
 **Requirements:** Java 21 and Docker.
 
 ```bash
-./mvnw spring-boot:run
+APP_BOOTSTRAP_USERNAME=coordinator APP_BOOTSTRAP_PASSWORD='choose-a-long-password' ./mvnw spring-boot:run
 ```
 
-Spring Boot starts PostgreSQL from `compose.yaml`, applies the migrations and serves the API on `http://localhost:8080`. Open `http://localhost:8080/swagger-ui.html`.
+Spring Boot starts PostgreSQL from `compose.yaml`, applies the migrations, creates the first coordinator and serves the API on `http://localhost:8080`. Open `http://localhost:8080/swagger-ui.html` and use **Authorize** with those credentials.
 
 ### Docker image
 
@@ -114,6 +128,7 @@ docker build -t food-bank-attendance-api .
 docker run -p 8080:8080 \
   -e SPRING_DATASOURCE_URL=jdbc:postgresql://<host>:5432/attendance \
   -e SPRING_DATASOURCE_USERNAME=... -e SPRING_DATASOURCE_PASSWORD=... \
+  -e APP_BOOTSTRAP_USERNAME=... -e APP_BOOTSTRAP_PASSWORD=... \
   food-bank-attendance-api
 ```
 
@@ -125,7 +140,7 @@ The image is multi-stage, runs as a non-root user and has a health check on `/ac
 ./mvnw verify
 ```
 
-34 tests. The integration tests run the whole application against a real PostgreSQL 17 started by Testcontainers. No H2, no mocks of the database.
+44 tests. The integration tests run the whole application against a real PostgreSQL 17 started by Testcontainers. No H2, no mocks of the database.
 
 | Suite | What it covers |
 |---|---|
@@ -133,6 +148,7 @@ The image is multi-stage, runs as a non-root user and has a health check on `/ac
 | `BeneficiaryApiTest` | Registration, field validation errors, duplicates, document correction keeping history, search, renewal rules, expiry warnings, soft delete, 404 problem details |
 | `CheckInApiTest` | Every check-in outcome, once-per-day across a day change, UID formats, card replacement, a UID shared by two people, manual check-in, and the database constraint on its own |
 | `ReportApiTest` | Period summary and invalid periods |
+| `SecurityApiTest` | 401 without a browser prompt, public health and docs, deny-by-default, front desk allowed and forbidden actions, real BCrypt credentials, wrong password, disabled accounts, first-coordinator bootstrap |
 
 GitHub Actions runs the suite and builds the Docker image on every push.
 
@@ -140,7 +156,12 @@ GitHub Actions runs the suite and builds the Docker image on every push.
 
 This is a backend service, not the production system.
 
-> **Do not deploy it with real personal data yet.** The API has no authentication or authorisation, so anyone who can reach it can read and change every record. Spring Security with roles (front desk, coordinator) is the next step, followed by an audit log of changes and PDF reports, which the desktop app already has.
+Before handling real personal data it would also need:
+
+- **HTTPS** in front of it. Basic credentials must never travel in clear text.
+- **Rate limiting of failed logins** (at the proxy or with a lockout policy).
+- **User management endpoints.** Today, accounts other than the first coordinator are created directly in the database.
+- **An audit log of changes and PDF reports**, which the desktop app already has.
 
 ## License
 
