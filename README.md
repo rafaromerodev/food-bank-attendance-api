@@ -138,7 +138,9 @@ GitHub Actions runs the suite and builds the Docker image on every push.
 
 ## Not included
 
-This is a backend service, not the production system. Authentication and authorisation (e.g. Spring Security with roles for front desk and coordinators), auditing of every change and PDF reports exist in the desktop app and would be the next steps here.
+This is a backend service, not the production system.
+
+> **Do not deploy it with real personal data yet.** The API has no authentication or authorisation, so anyone who can reach it can read and change every record. Spring Security with roles (front desk, coordinator) is the next step, followed by an audit log of changes and PDF reports, which the desktop app already has.
 
 ## License
 
