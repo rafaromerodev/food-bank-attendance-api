@@ -11,7 +11,7 @@ A REST API for running a food bank's front desk: registering beneficiaries, issu
 
 ## Background
 
-I built [Sonrisas NFC](https://github.com/rafaromerodev/sonrisas-nfc), a desktop app that a non-profit food bank in the Canary Islands uses every day. Auditing its first version against real data taught me where this kind of system goes wrong: a card left on the reader logged a visit every 1.5 seconds, a lost card meant losing the person's history, and expired files went unnoticed.
+I built [Sonrisas NFC](https://github.com/rafaromerodev/sonrisas-nfc), a desktop app in use at a non-profit food bank in the Canary Islands since 2025. Auditing its first version against real data taught me where this kind of system goes wrong: a card left on the reader logged a visit every 1.5 seconds, a lost card meant losing the person's history, and expired files went unnoticed.
 
 This project takes those same business rules and implements them as a backend service in Spring Boot and PostgreSQL. It is the kind of API a web or mobile front desk, or several sites sharing one database, would need. It runs on fictional data only.
 
