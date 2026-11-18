@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -23,8 +24,10 @@ import org.springframework.test.web.servlet.ResultActions;
 /**
  * Base class for API tests: the real application against PostgreSQL in a container,
  * with a clean database and a fixed "now" (17 Nov 2026, 10:00 in the Canary Islands) for every test.
+ * Requests run as a coordinator unless a test says otherwise; {@code SecurityApiTest} covers the roles.
  */
 @SpringBootTest
+@WithMockUser(roles = "COORDINATOR")
 @AutoConfigureMockMvc
 @Import({TestcontainersConfiguration.class, ApiTestSupport.ClockConfig.class})
 public abstract class ApiTestSupport {
@@ -52,7 +55,7 @@ public abstract class ApiTestSupport {
 
     @BeforeEach
     void resetState() {
-        jdbc.execute("truncate attendance, card, beneficiary restart identity cascade");
+        jdbc.execute("truncate attendance, card, beneficiary, app_user restart identity cascade");
         clock.set(NOW);
     }
 
